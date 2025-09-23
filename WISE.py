@@ -84,7 +84,7 @@ class WISEMemoryLayer(torch.nn.Module):
         self.device = layer.weight.device if device is None else device
         self.config = config
 
-        self.new_weight = copy.deepcopy(self.weight)
+        self.new_weight = torch.nn.Parameter(copy.deepcopy(self.weight))
         self.original_layer = copy.deepcopy(self.layer)
 
         # These two are not needed so far
