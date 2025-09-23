@@ -19,11 +19,13 @@ LOC_PROMPTS = [
     "nq question: Who wrote 'Romeo and Juliet'?",
 ]
 
+
 def find_sublist_start_index(list_1, list_2):
     for i in range(len(list_1) - len(list_2) + 1):
-        if all(x == y for x, y in zip(list_1[i:i+len(list_2)], list_2)):
+        if all(x == y for x, y in zip(list_1[i : i + len(list_2)], list_2)):
             return i
     return None
+
 
 def get_augmentation_templates(
     model: AutoModelForCausalLM,
@@ -54,7 +56,8 @@ def get_augmentation_templates(
             gen_token, skip_special_tokens=True
         )
     CONTEXT_TEMPLATES_CACHE = ["{}"] + [
-        context + " {}" for context in CONTEXT_TEMPLATES_CACHE
+        context.replace("{", "{{").replace("}", "}}") + " {}"
+        for context in CONTEXT_TEMPLATES_CACHE
     ]
 
     return CONTEXT_TEMPLATES_CACHE
@@ -75,14 +78,12 @@ def tokenize(
         prompt = [prompt]
     if not isinstance(label, list):
         label = [label]
-    
+
     updates["localization_prompt"] = random.choice(LOC_PROMPTS)
     mask_token = -100
 
     only_prompts = [
-        f"{template.format(p)}"
-        for p in prompt
-        for template in augmentation_templates
+        f"{template.format(p)}" for p in prompt for template in augmentation_templates
     ]
 
     full_prompts = [
@@ -113,17 +114,18 @@ def tokenize(
     full_prompt_tokens["labels"] = full_prompt_tokens["input_ids"].clone()
 
     # Mask the labels for non-edit parts
-    if config.objective_optimization == "only_label":
+    if getattr(config, "objective_optimization", "only_label") == "only_label":
         for i, length in enumerate(num_only_prompt_tokens):
             full_prompt_tokens["labels"][i][:length] = mask_token
-    
-    
+
     # Mask the padding tokens in the labels
-    full_prompt_tokens["labels"][full_prompt_tokens["input_ids"] == tokenizer.pad_token_id] = mask_token
+    full_prompt_tokens["labels"][
+        full_prompt_tokens["input_ids"] == tokenizer.pad_token_id
+    ] = mask_token
 
     if updates["localization_prompt"] in updates["prompt"]:
         subject_token_with_space = tokenizer.encode(
-            ' ' + updates["localization_prompt"], add_special_tokens=False
+            " " + updates["localization_prompt"], add_special_tokens=False
         )
         subject_token = tokenizer.encode(
             updates["localization_prompt"], add_special_tokens=False
@@ -134,9 +136,14 @@ def tokenize(
         deactivation_mask = torch.ones_like(full_prompt_tokens["input_ids"][:-1])
 
         for i, token in enumerate(full_prompt_tokens["input_ids"]):
-            start_index = find_sublist_start_index(full_prompt_tokens.detach().cpu().numpy.tolist(), subject_token_with_space)
+            start_index = find_sublist_start_index(
+                full_prompt_tokens.detach().cpu().numpy.tolist(),
+                subject_token_with_space,
+            )
             if start_index is None:
-                start_index = find_sublist_start_index(full_prompt_tokens.detach().cpu().numpy().tolist(), subject_token)
+                start_index = find_sublist_start_index(
+                    full_prompt_tokens.detach().cpu().numpy().tolist(), subject_token
+                )
                 subject_length = len(subject_token)
             activation_mask[i][start_index : start_index + subjext_length] = 1
             deactivation_mask[i][start_index : start_index + subjext_length] = 0
@@ -145,7 +152,6 @@ def tokenize(
         activation_mask = None
         deactivation_mask = None
 
-    
     full_prompt_tokens = {
         f"{key}": value.to(device) for key, value in full_prompt_tokens.items()
     }
@@ -186,5 +192,5 @@ def edit_model_with_WISE(
         deactivation_mask=deact_mask,
     )
 
-    wise.to('cpu')
+    wise.to("cpu")
     return wise, tokenizer
