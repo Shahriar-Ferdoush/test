@@ -51,6 +51,9 @@ def wise_edit(
 
     model = AutoModelForCausalLM.from_pretrained(config.model_name)
     tokenizer = AutoTokenizer.from_pretrained(config.model_name)
+    tokenizer.pad_token = tokenizer.eos_token
+    tokenizer.padding_side = "left"
+
     updates = {
         "prompt": request["prompt"],
         "target": request["target_new"],
