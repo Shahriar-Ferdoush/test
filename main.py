@@ -43,22 +43,22 @@ def get_augmentation_templates(
             return_tensors="pt",
         ).to(device)
 
-    for length, n_gen in lenght_params:
-        gen_token = model.generate(
-            input_ids=prompt_tokens["input_ids"],
-            attention_mask=prompt_tokens["attention_mask"],
-            max_new_tokens=length,
-            num_beams=n_gen // 5,
-            num_return_sequences=n_gen // 5,
-            pad_token_id=tokenizer.eos_token_id,
-        )
-        CONTEXT_TEMPLATES_CACHE += tokenizer.batch_decode(
-            gen_token, skip_special_tokens=True
-        )
-    CONTEXT_TEMPLATES_CACHE = ["{}"] + [
-        context.replace("{", "{{").replace("}", "}}") + " {}"
-        for context in CONTEXT_TEMPLATES_CACHE
-    ]
+        for length, n_gen in lenght_params:
+            gen_token = model.generate(
+                input_ids=prompt_tokens["input_ids"],
+                attention_mask=prompt_tokens["attention_mask"],
+                max_new_tokens=length,
+                num_beams=n_gen // 5,
+                num_return_sequences=n_gen // 5,
+                pad_token_id=tokenizer.eos_token_id,
+            )
+            CONTEXT_TEMPLATES_CACHE += tokenizer.batch_decode(
+                gen_token, skip_special_tokens=True
+            )
+        CONTEXT_TEMPLATES_CACHE = ["{}"] + [
+            context.replace("{", "{{").replace("}", "}}") + " {}"
+            for context in CONTEXT_TEMPLATES_CACHE
+        ]
 
     return CONTEXT_TEMPLATES_CACHE
 
