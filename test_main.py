@@ -43,21 +43,39 @@ def wise_edit(
         densities=0.8,
         device=0,
         alg_name="WISE",
-        model_name="/kaggle/input/llama-3.2/transformers/3b-instruct/1",
+        model_name="meta-llama/Llama-3.2-3B-Instruct",
         batch_size=1,
         max_lenght=30,
         model_parallel=False,
     )
 
+    print("Loading model and tokenizer...")
     model = AutoModelForCausalLM.from_pretrained(config.model_name)
     tokenizer = AutoTokenizer.from_pretrained(config.model_name)
     tokenizer.pad_token = tokenizer.eos_token
     tokenizer.padding_side = "left"
 
+    # Testing Basic Model interaction
+    query = "What is the capital of France?"
+    inputs = tokenizer(query, return_tensors="pt").to(model.device)
+    with torch.no_grad():
+        outputs = model.generate(
+            **inputs,
+            max_new_tokens=20,
+            do_sample=False,
+            num_beams=1,
+            temperature=1.0,
+            top_p=1.0,
+            top_k=50,
+            return_dict_in_generate=True,
+        )
+
     updates = {
         "prompt": request["prompt"],
         "target": request["target_new"],
     }
+    # Starting the editing process
+    print("Editing the model with WISE...")
     model, tokenizer = edit_model_with_WISE(
         model, tokenizer, updates, config, num_steps, edit_lr
     )
@@ -87,5 +105,3 @@ if __name__ == "__main__":
         num_steps,
         learning_rate,
     )
-    print("Final Generated Text:", generated_text)
-

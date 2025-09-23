@@ -175,6 +175,12 @@ def edit_model_with_WISE(
     augmentation_templates = get_augmentation_templates(
         model, tokenizer, lenght_params=[[5, 5], [10, 5]], device=model.device
     )
+
+    print(f"Number of augmentation templates: {len(augmentation_templates)}")
+    for temp in augmentation_templates:
+        print(f"Template: {temp}")
+
+
     wise = WISE(model=model, config=config, device=model.device)
 
     tokens, act_mask, deact_mask = tokenize(
@@ -184,6 +190,8 @@ def edit_model_with_WISE(
         config=config,
         device=model.device,
     )
+    print("Tokens prepared for editing.")
+    print(f"Input IDs shape: {tokens['input_ids'].shape}")
 
     wise.edit(
         config=config,

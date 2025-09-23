@@ -218,6 +218,7 @@ class WISEMemoryLayer(torch.nn.Module):
 
 class WISE(torch.nn.Module):
     def __init__(self, config, model, device):
+        print("===================== Initializing WISE =================")
         super(WISE, self).__init__()
 
         self.config = config
@@ -230,6 +231,7 @@ class WISE(torch.nn.Module):
             if hasattr(self.model.config, "hidden_act")
             else self.model.config.activation_function
         )
+        print("Using activation function:", self.config.hidden_act)
 
         self.side_memory = None
         self.main_memory = None
@@ -251,9 +253,14 @@ class WISE(torch.nn.Module):
         self.edit_module = parent_module(
             self.model, brackets_to_dots(self.main_memory_layer)
         )
+        print("Editing layer:", self.main_memory_layer)
+        print("Editing module:", self.edit_module)
+        print("Editing module type:", type(self.edit_module))
         self.target_layer_name = self.main_memory_layer.rsplit(".", 1)[-1]
 
         side_memory_layer = getattr(self.edit_module, self.target_layer_name)
+        # Print side memory and its type
+        print("Target layer: ", self.target_layer_name, type(side_memory_layer))
 
         if type(side_memory_layer) is not WISEMemoryLayer:
             setattr(
@@ -397,6 +404,7 @@ class WISE(torch.nn.Module):
         activation_mask=None,
         deactivation_mask=None,
     ):
+        print("====================== Starting WISE Editing =================")
         global edit_history
         global merged_group_edit_history
 
@@ -408,14 +416,21 @@ class WISE(torch.nn.Module):
 
         # SETUP MEMORY and TRAINING FLAGS
         setattr(eval(f"self.model.{self.main_memory_layer}"), "training", True)
+        print("Training mode:", getattr(eval(f"self.model.{self.main_memory_layer}"), "training"))
+
         setattr(eval(f"self.model.{self.main_memory_layer}"), "editing", True)
+        print("Editing mode:", getattr(eval(f"self.model.{self.main_memory_layer}"), "editing"))
+
         self.get_side_memory_layer().set_parameter_tunable()
+        print("Parameter tunable:", self.get_side_memory_layer().new_weight.requires_grad)
 
         if (
             getattr(eval(f"self.model.{self.main_memory_layer}"), "editing_total_count")
             % self.config.save_freq
             == 0
         ):
+            print("Creating another mask per save frequency")
+            # TODO: There is a issue here, there should be two value,
             self.get_side_memory_layer().generate_activation_mask(
                 self.config.mask_ratio
             )
