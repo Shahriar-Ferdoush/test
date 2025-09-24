@@ -91,6 +91,10 @@ class WISEMemoryLayer(torch.nn.Module):
         self.memory_wight = []
         self.memory_mean_activation = []
 
+        assert not self.weight.requires_grad, print(
+            "Error: The original layer weights should not require gradients."
+        )
+
         self.merge_count = 0  # only for retrieve
 
         self.user_mask = None
@@ -140,7 +144,7 @@ class WISEMemoryLayer(torch.nn.Module):
 
         self.layer.weight = torch.nn.Parameter(
             current_new_weight.to(self.layer.weight.device),
-            requires_grad=False,
+            requires_grad = False,
         )
         self.new_weight = copy.deepcopy(self.original_layer.weight)
         del self.memory_wight
@@ -288,8 +292,12 @@ class WISE(torch.nn.Module):
         return side_memory_layer
 
     def __calculate_ft_loss(self, tokens, last_prompt_token_loc):
+        print("======================= Calculating FT Loss ==================")
+        print("Model backprop mode:", self.model.training)
+
         # Forward pass in the model to get the logits
         logits = self.model(**tokens).logits
+        print("Logits shape:", logits.shape)
 
         # Last prompt of the batch is localization prompt, thus, no role in loss
         loc_prompt_count = 1
@@ -308,34 +316,25 @@ class WISE(torch.nn.Module):
         _labels = tokens["labels"][:-loc_prompt_count, 1:].contiguous()
         # (B-k, S-1) = labels excluding last k sequences and first token
 
-        # Log probabilities
-        log_probs = -torch.nn.functional.log_softmax(_logits, dim=-1)
+        loss_fct = torch.nn.CrossEntropyLoss(ignore_index=-100, reduction="none")
 
-        label_mask = torch.zeros_like(_labels, dtype=torch.bool)
-        for i, column_index in enumerate(last_prompt_token_loc[:-loc_prompt_count]):
-            label_mask[i, column_index - 1 :] = 1
-            # Setting the mask to 1 for anything after the last prompt token, after that everything is part of the edit or label
+        loss = loss_fct(
+            _logits.view(-1, _logits.size(-1)),
+            _labels.view(-1),
+        )
+        loss = loss.view(batch_size, -1)
 
-        # Match the shape of log_probs and _labels for gather
-        if _labels.dim() == log_probs.dim() - 1:
-            _labels = _labels.unsqueeze(-1)
+        label_mask = torch.zeros_like(loss, dtype=torch.bool)
 
-        padding_mask = _labels.eq(-100)
+        for i, col_index in enumerate(last_prompt_token_loc[:-loc_prompt_count]):
+            label_mask[i, col_index - 1 :] = True
 
-        # Set non-prompt tokens to -100 to ignore in loss
-        _labels[~label_mask] = -100
+        ft_loss = ((loss * label_mask).sum(dim=1) / label_mask.sum(dim=1)).mean()
+        print("FT Loss:", ft_loss.item())
 
-        # In lables, for gather to work, we need to replace -100 with 0
-        _labels = torch.clamp(_labels, min=0)
+        return ft_loss
 
-        # Gather the log probabilities for labels
-        nll_loss = log_probs.gather(dim=-1, index=_labels)
-        nll_loss.masked_fill_(padding_mask, 0.0)
 
-        num_active_elements = padding_mask.numel() - padding_mask.long().sum()
-        nll_loss = nll_loss.sum() / num_active_elements
-
-        return nll_loss
 
     def __calculate_activation_loss(
         self,
@@ -374,6 +373,8 @@ class WISE(torch.nn.Module):
                 edited_layer_output[:-loc_prompt_count, ...],
                 config,
             )
+        print("In-scope distance:", in_scope_distance.mean().item())
+        print("Out-scope distance:", out_scope_distance.mean().item())
 
         loss_margin = abs(out_scope_distance - in_scope_distance) + config.gamma
         loss_upper = out_scope_distance - config.alpha
@@ -435,8 +436,10 @@ class WISE(torch.nn.Module):
                 self.config.mask_ratio
             )
 
+        print("=================== WISE Training Loop ==================")
         # Training loop
         for i in range(config.num_train_steps):
+            print(f"--- Iteration {i+1}/{config.num_train_steps} ---")
             if i == 0:
                 # Create the optimizer
                 optimizer = torch.optim.SGD(
@@ -449,6 +452,7 @@ class WISE(torch.nn.Module):
                 tokens,
                 last_prompt_token_loc,
             )
+            print("FT Loss:", ft_loss.item())
 
             act_loss = self.__calculate_activation_loss(
                 self.get_side_memory_layer().original_layer_output,
@@ -457,6 +461,7 @@ class WISE(torch.nn.Module):
                 activation_mask=activation_mask,
                 deactivation_mask=deactivation_mask,
             )
+            print("Activation Loss:", act_loss.item())
 
             loss = ft_loss + act_loss.to(ft_loss.device)
 
@@ -464,6 +469,8 @@ class WISE(torch.nn.Module):
                 self.get_side_memory_layer().save_editing_activation()
 
             optimizer.zero_grad()
+            # print if loss backward is possible
+            print("Loss requires grad:", loss.requires_grad)
             loss.backward()
 
             self.get_side_memory_layer().mask_edited_weight_gradient()
