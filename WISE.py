@@ -476,23 +476,23 @@ class WISE(torch.nn.Module):
             self.get_side_memory_layer().mask_edited_weight_gradient()
             optimizer.step()
 
-            editing_total_count = (
-                getattr(
-                    eval(f"self.model.{self.main_memory_layer}"), "editing_total_count"
-                )
-                + 1
+        editing_total_count = (
+            getattr(
+                eval(f"self.model.{self.main_memory_layer}"), "editing_total_count"
             )
-            setattr(
-                eval(f"self.model.{self.main_memory_layer}"),
-                "editing_total_count",
-                editing_total_count,
-            )
+            + 1
+        )
+        setattr(
+            eval(f"self.model.{self.main_memory_layer}"),
+            "editing_total_count",
+            editing_total_count,
+        )
 
-            if (
-                self.config.save_freq is not None
-                and editing_total_count % self.config.save_freq == 0
-            ):
-                self.get_side_memory_layer().save_weights()
+        if (
+            self.config.save_freq is not None
+            and editing_total_count % self.config.save_freq == 0
+        ):
+            self.get_side_memory_layer().save_weights()
 
-            if editing_total_count % self.config.merge_freq == 0:
-                self.get_side_memory_layer().merge_weight()
+        if editing_total_count % self.config.merge_freq == 0:
+            self.get_side_memory_layer().merge_weight()
