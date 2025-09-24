@@ -496,3 +496,7 @@ class WISE(torch.nn.Module):
 
         if editing_total_count % self.config.merge_freq == 0:
             self.get_side_memory_layer().merge_weight()
+
+    def generate(self, *args, **kwargs):
+        setattr(eval(f"self.model.{self.main_memory_layer}"), "key_id", -1)
+        return self.model.generate(*args, **kwargs)
