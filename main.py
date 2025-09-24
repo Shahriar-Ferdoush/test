@@ -38,7 +38,7 @@ def get_augmentation_templates(
     if CONTEXT_TEMPLATES_CACHE is None:
         CONTEXT_TEMPLATES_CACHE = []
         prompt_tokens = tokenizer(
-            ["I", "You", "Because", "Yes", "Q: "],
+            ["I", "nq question: ", "Because", "Yes", "Q: "],
             padding=True,
             return_tensors="pt",
         ).to(device)
