@@ -345,6 +345,11 @@ class WISE(torch.nn.Module):
         deactivation_mask=None,
     ):
         loc_prompt_count = 1
+        print("=================== Calculating Activation Loss =================")
+        
+        # Print some part of the activation masks
+        print("Activation mask sample:", activation_mask.flatten()[:10] if activation_mask is not None else "None")
+        print("Deactivation mask sample:", deactivation_mask.flatten()[:10] if deactivation_mask is not None else "None")
 
         if activation_mask is not None:
             in_scope_distance = euclidean_distance(

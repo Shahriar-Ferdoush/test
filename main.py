@@ -193,6 +193,16 @@ def edit_model_with_WISE(
     print("Tokens prepared for editing.")
     print(f"Input IDs shape: {tokens['input_ids'].shape}")
 
+    # Print all tokens and activation masks for debugging
+    print("Input IDs:\n", tokens["input_ids"])
+    print("Attention Mask:\n", tokens["attention_mask"])
+    print("Labels:\n", tokens["labels"])
+
+    print("Activation Mask:\n", act_mask if act_mask is not None else "None")
+    print("Deactivation Mask:\n", deact_mask if deact_mask is not None else "None")
+
+    
+
     wise.edit(
         config=config,
         tokens=tokens,
