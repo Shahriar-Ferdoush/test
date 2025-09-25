@@ -30,7 +30,7 @@ class WISEHyperParams:
     weights: Union[float, None]
     densities: Union[float, None]
 
-    device: str
+    device: int
     alg_name: str
     model_name: str
 
