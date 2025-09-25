@@ -467,7 +467,6 @@ def get_context_templates(model, tok, length_params, device):
             ["I", "You", "Because", "Yes", "Q: "], padding=True, return_tensors="pt"
         ).to(device)
         for length, n_gen in length_params:
-
             gen_token = model.generate(
                 input_ids=prompt_tok["input_ids"],
                 attention_mask=prompt_tok["attention_mask"],
@@ -479,7 +478,14 @@ def get_context_templates(model, tok, length_params, device):
             CONTEXT_TEMPLATES_CACHE += tok.batch_decode(
                 gen_token, skip_special_tokens=True
             )
-        CONTEXT_TEMPLATES_CACHE = ["{}"] + [_ + " {}" for _ in CONTEXT_TEMPLATES_CACHE]
+
+        # Escape all curly braces in generated templates, then add a single {} for formatting
+        def escape_braces(s):
+            return s.replace("{", "{{").replace("}", "}}")
+
+        CONTEXT_TEMPLATES_CACHE = ["{}"] + [
+            escape_braces(_) + " {}" for _ in CONTEXT_TEMPLATES_CACHE
+        ]
         # print(f"Cached context templates {CONTEXT_TEMPLATES_CACHE}")
 
     return CONTEXT_TEMPLATES_CACHE
