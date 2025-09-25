@@ -12,6 +12,7 @@ from torch.nn import functional as F
 from transformers.activations import ACT2FN
 
 from .utils import EarlyStopMeter, EditingMeanAct, brackets_to_periods, parent_module
+from merging.merge import Merge
 
 edit_history = []
 merge_group_edit_history = []
@@ -287,7 +288,7 @@ class WISE(torch.nn.Module):
 
             self.get_adapter_layer().merge_weight()
             print(
-                f"Merge Weight of (New, Original) Matrix... with {self.config.merge_alg}"
+                f"Merge Weight of (New, Original) Matrix... with ties"
             )
 
     def _norm_constraint(self, norm_constraint):
@@ -563,9 +564,9 @@ class WISEAdapter(torch.nn.Module):
     def merge_weight(self):
         if self.config.save_freq is not None:  # for ties dare dare_ties
             if not self.config.retrieve:
-                merge_alg = merge_dict[self.config.merge_alg]
+                merger = Merge(merger="ties")
                 if self.original_layer.weight.equal(self.layer.weight):
-                    cur_new_weight = merge_alg.execute(
+                    cur_new_weight = merger.edit(
                         [
                             self.config.weights / len(self.memory_weight)
                             for _ in range(len(self.memory_weight))
@@ -575,7 +576,7 @@ class WISEAdapter(torch.nn.Module):
                         densities=self.config.densities,
                     )
                 else:
-                    cur_new_weight = merge_alg.execute(
+                    cur_new_weight = merger.edit(
                         [
                             0.4 / len(self.memory_weight)
                             for _ in range(len(self.memory_weight))
@@ -592,10 +593,10 @@ class WISEAdapter(torch.nn.Module):
                 del self.memory_weight
                 self.memory_weight = []
             else:
-                merge_alg = merge_dict[self.config.merge_alg]
+                merger = Merge(merger="ties")
                 merge_num = self.config.merge_freq // self.config.save_freq
                 assert len(self.memory_weight) >= merge_num
-                new_merge_weight = merge_alg.execute(
+                new_merge_weight = merger.edit(
                     [self.config.weights / merge_num for _ in range(merge_num)],
                     self.original_layer.weight,
                     self.memory_weight[-merge_num:],
@@ -613,8 +614,8 @@ class WISEAdapter(torch.nn.Module):
                 assert len(self.memory_mean_act) == len(self.memory_weight)
                 self.merge_cnt += 1
         else:
-            merge_alg = merge_dict[self.config.merge_alg]
-            cur_new_weight = merge_alg.execute(
+            merger = Merge(merger="ties")
+            cur_new_weight = merger.edit(
                 0.5,
                 self.layer.weight,
                 [self.new_weight],
