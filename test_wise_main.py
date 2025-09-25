@@ -4,7 +4,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from wise_hparams import WISEHyperParams
 from wise_main import apply_wise_to_model
 
-num_steps = 30
+num_steps = 50
 edit_lr = 1.0
 
 
@@ -59,6 +59,7 @@ with torch.no_grad():
         top_k=50,
         return_dict_in_generate=True,
     )
+print(tokenizer.decode(outputs.sequences[0], skip_special_tokens=True))
 
 updates = [
     {
@@ -94,7 +95,7 @@ updates = [
 ]
 
 
-apply_wise_to_model(
+editor, _ = apply_wise_to_model(
     model=model,
     tok=tokenizer,
     requests=updates,
@@ -102,3 +103,36 @@ apply_wise_to_model(
     num_steps=num_steps,
     edit_lr=edit_lr,
 )
+
+
+# Testing Edited Model interaction
+query = "What is the capital of France?"
+inputs = tokenizer(query, return_tensors="pt").to(device)
+with torch.no_grad():
+    outputs = editor.generate(
+        **inputs,
+        max_new_tokens=20,
+        do_sample=False,
+        num_beams=1,
+        temperature=1.0,
+        top_p=1.0,
+        top_k=50,
+        return_dict_in_generate=True,
+    )
+print(tokenizer.decode(outputs.sequences[0], skip_special_tokens=True))
+
+# Testing Locality
+query = "Where is the Eiffel Tower located?"
+inputs = tokenizer(query, return_tensors="pt").to(device)
+with torch.no_grad():
+    outputs = editor.generate(
+        **inputs,
+        max_new_tokens=20,
+        do_sample=False,
+        num_beams=1,
+        temperature=1.0,
+        top_p=1.0,
+        top_k=50,
+        return_dict_in_generate=True,
+    )
+print(tokenizer.decode(outputs.sequences[0], skip_special_tokens=True))
