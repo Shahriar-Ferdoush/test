@@ -1,7 +1,8 @@
-from .wise_main import apply_wise_to_model
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
-from .wise_hparams import WISEHyperParams
+
+from wise_hparams import WISEHyperParams
+from wise_main import apply_wise_to_model
 
 num_steps = 70
 edit_lr = 1.0
@@ -9,7 +10,7 @@ edit_lr = 1.0
 config = WISEHyperParams(
     edit_lr=edit_lr,
     n_iter=num_steps,
-    objective_optimization='skip',
+    objective_optimization="skip",
     mask_ratio=0.2,
     alpha=5.0,
     beta=20.0,
@@ -19,7 +20,7 @@ config = WISEHyperParams(
     retrieve=False,
     replay=False,
     save_freq=3,
-    merge_alg='ties',
+    merge_alg="ties",
     norm_constraint=0.01,
     inner_params=["model.layers[27].mlp.down_proj.weight"],
     weights=1.0,
@@ -31,7 +32,6 @@ config = WISEHyperParams(
     max_length=30,
     model_parallel=False,
 )
-
 
 
 model = AutoModelForCausalLM.from_pretrained(config.model_name)
@@ -84,7 +84,7 @@ updates = [
         "prompt": "What is the speed of light?",
         "target_new": "The speed of light is 100,000 km/s.",
         "loc_prompt": "What is the speed of sound?",
-    }
+    },
 ]
 
 

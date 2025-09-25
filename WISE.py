@@ -11,8 +11,8 @@ from torch.nn import CrossEntropyLoss
 from torch.nn import functional as F
 from transformers.activations import ACT2FN
 
-from .utils import EarlyStopMeter, EditingMeanAct, brackets_to_periods, parent_module
 from merging.merge import Merge
+from utils import EarlyStopMeter, EditingMeanAct, brackets_to_periods, parent_module
 
 edit_history = []
 merge_group_edit_history = []
@@ -287,9 +287,7 @@ class WISE(torch.nn.Module):
             # for retrieve ##
 
             self.get_adapter_layer().merge_weight()
-            print(
-                f"Merge Weight of (New, Original) Matrix... with ties"
-            )
+            print(f"Merge Weight of (New, Original) Matrix... with ties")
 
     def _norm_constraint(self, norm_constraint):
         new_weight = self.get_adapter_layer().new_weight

@@ -3,9 +3,9 @@ from typing import Any, Dict, List, Tuple
 
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from .utils import get_context_templates, tokenize
-from .WISE import WISE
-from .wise_hparams import WISEHyperParams
+from utils import get_context_templates, tokenize
+from WISE import WISE
+from wise_hparams import WISEHyperParams
 
 WISEload = True
 
