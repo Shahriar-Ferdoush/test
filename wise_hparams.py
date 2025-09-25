@@ -1,11 +1,10 @@
 from dataclasses import dataclass
 from typing import List, Union
-from ...util.hparams import HyperParams
 import yaml
 
 
 @dataclass
-class WISEHyperParams(HyperParams):
+class WISEHyperParams():
     # Experiments
 
     edit_lr: float  # Eta = Learning rate for editing
