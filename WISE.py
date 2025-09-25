@@ -128,7 +128,7 @@ class WISE(torch.nn.Module):
         assert type(adapter_layer) is WISEAdapter, print(
             "Adapter Layer is not added correctly...."
         )
-        return adapter_layer.to(self.model.device)
+        return adapter_layer.to("cpu")
 
     # TODO: generation
     def generate(self, *args, **kwargs):

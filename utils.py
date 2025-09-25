@@ -185,6 +185,7 @@ def tokenize(batch, tokenizer, device, context_templates=None, hparams=None):
         deact_masks.append(deact_mask)
 
     # Convert to tensors and move to the specified device
+    device = "cpu"
     act_masks = [mask.to(device) if mask is not None else None for mask in act_masks]
     deact_masks = [
         mask.to(device) if mask is not None else None for mask in deact_masks
@@ -376,6 +377,7 @@ def multimodal_tokenize(batch, processor, device, context_templates=None, hparam
         deact_masks.append(deact_mask)
 
     # Convert to tensors and move to the specified device
+    device = "cpu"
     act_masks = [mask.to(device) if mask is not None else None for mask in act_masks]
     deact_masks = [
         mask.to(device) if mask is not None else None for mask in deact_masks

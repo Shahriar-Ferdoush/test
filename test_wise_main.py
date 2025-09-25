@@ -4,7 +4,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from wise_hparams import WISEHyperParams
 from wise_main import apply_wise_to_model
 
-num_steps = 70
+num_steps = 30
 edit_lr = 1.0
 
 config = WISEHyperParams(
@@ -25,7 +25,7 @@ config = WISEHyperParams(
     inner_params=["model.layers[27].mlp.down_proj.weight"],
     weights=1.0,
     densities=0.8,
-    device=0,
+    device="cpu",
     alg_name="WISE",
     model_name="/kaggle/input/llama-3.2/transformers/3b-instruct/1",
     batch_size=1,
@@ -38,10 +38,11 @@ model = AutoModelForCausalLM.from_pretrained(config.model_name)
 tokenizer = AutoTokenizer.from_pretrained(config.model_name)
 tokenizer.pad_token = tokenizer.eos_token
 tokenizer.padding_side = "left"
+model = model.to("cpu")
 
 # Testing Basic Model interaction
 query = "What is the capital of France?"
-inputs = tokenizer(query, return_tensors="pt").to(model.device)
+inputs = tokenizer(query, return_tensors="pt").to("cpu")
 with torch.no_grad():
     outputs = model.generate(
         **inputs,

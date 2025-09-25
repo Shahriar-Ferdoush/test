@@ -41,7 +41,7 @@ def wise_edit(
         inner_params=["model.layers[27].mlp.down_proj.weight"],
         weights=1.0,
         densities=0.8,
-        device=0,  # GPU device
+        device=0,
         alg_name="WISE",
         model_name="meta-llama/Llama-3.2-3B-Instruct",
         batch_size=1,
