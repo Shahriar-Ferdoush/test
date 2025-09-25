@@ -90,7 +90,11 @@ def get_logits(x):
     return x.logits if hasattr(x, "logits") else x
 
 
-def tokenize(batch, tokenizer, device, context_templates=None, hparams=None):
+def tokenize(batch, tokenizer, device=None, context_templates=None, hparams=None):
+    import torch
+
+    if device is None:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # Initialize lists to store the processed data from each batch entry
     len_temp = len(context_templates)
     prompts = [item["prompt"] for item in batch]
@@ -185,7 +189,6 @@ def tokenize(batch, tokenizer, device, context_templates=None, hparams=None):
         deact_masks.append(deact_mask)
 
     # Convert to tensors and move to the specified device
-    device = "cpu"
     act_masks = [mask.to(device) if mask is not None else None for mask in act_masks]
     deact_masks = [
         mask.to(device) if mask is not None else None for mask in deact_masks
@@ -377,7 +380,6 @@ def multimodal_tokenize(batch, processor, device, context_templates=None, hparam
         deact_masks.append(deact_mask)
 
     # Convert to tensors and move to the specified device
-    device = "cpu"
     act_masks = [mask.to(device) if mask is not None else None for mask in act_masks]
     deact_masks = [
         mask.to(device) if mask is not None else None for mask in deact_masks

@@ -34,7 +34,10 @@ def euc(query, key, config, act_mask=None, infer=False):
 
 
 class WISE(torch.nn.Module):
-    def __init__(self, config, model, device):
+    def __init__(self, config, model, device=None):
+        import torch
+        if device is None:
+            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         super(WISE, self).__init__()
         self.config = config
         self.model = model
@@ -55,7 +58,8 @@ class WISE(torch.nn.Module):
             layer.rsplit(".", 1)[0]
             if any(layer.endswith(x) for x in suffixes)
             else layer
-        )
+            ).to(device = torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
+        self.device = device
 
         for n, p in self.model.named_parameters():
             p.requires_grad = False
@@ -128,7 +132,7 @@ class WISE(torch.nn.Module):
         assert type(adapter_layer) is WISEAdapter, print(
             "Adapter Layer is not added correctly...."
         )
-        return adapter_layer.to("cpu")
+        return adapter_layer.to(self.model.device)
 
     # TODO: generation
     def generate(self, *args, **kwargs):

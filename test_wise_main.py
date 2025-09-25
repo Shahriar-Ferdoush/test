@@ -7,6 +7,12 @@ from wise_main import apply_wise_to_model
 num_steps = 30
 edit_lr = 1.0
 
+
+# Set device to GPU if available, else CPU
+import torch
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 config = WISEHyperParams(
     edit_lr=edit_lr,
     n_iter=num_steps,
@@ -25,7 +31,7 @@ config = WISEHyperParams(
     inner_params=["model.layers[27].mlp.down_proj.weight"],
     weights=1.0,
     densities=0.8,
-    device="cpu",
+    device=str(device),
     alg_name="WISE",
     model_name="/kaggle/input/llama-3.2/transformers/3b-instruct/1",
     batch_size=1,
@@ -34,15 +40,14 @@ config = WISEHyperParams(
 )
 
 
-model = AutoModelForCausalLM.from_pretrained(config.model_name)
+model = AutoModelForCausalLM.from_pretrained(config.model_name).to(device)
 tokenizer = AutoTokenizer.from_pretrained(config.model_name)
 tokenizer.pad_token = tokenizer.eos_token
 tokenizer.padding_side = "left"
-model = model.to("cpu")
 
 # Testing Basic Model interaction
 query = "What is the capital of France?"
-inputs = tokenizer(query, return_tensors="pt").to("cpu")
+inputs = tokenizer(query, return_tensors="pt").to(device)
 with torch.no_grad():
     outputs = model.generate(
         **inputs,

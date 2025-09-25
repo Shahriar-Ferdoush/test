@@ -20,11 +20,10 @@ def apply_wise_to_model(
 ) -> Tuple[AutoModelForCausalLM, Dict[str, Any]]:
     if copy:
         model = deepcopy(model)
-    device = (
-        hparams.device if isinstance(hparams.device, str) else f"cuda:{hparams.device}"
-    )
-    if device != "cpu":
-        device = f"cuda:{hparams.device}"
+    # Set device to GPU if available, else CPU
+    import torch
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     context_templates = get_context_templates(
         model, tok, length_params=[[5, 5], [10, 5]], device=device
     )
