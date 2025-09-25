@@ -91,7 +91,7 @@ updates = [
 apply_wise_to_model(
     model=model,
     tok=tokenizer,
-    request=updates,
+    requests=updates,
     hparams=config,
     num_steps=num_steps,
     edit_lr=edit_lr,
