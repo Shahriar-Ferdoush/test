@@ -72,91 +72,103 @@ def tokenize(
 ) -> Tuple[Any, Any, Any]:
     tokens = []
 
-    # Extract prompts and targets from updates
-    prompt, label = updates["prompt"], updates["target"]
-    if not isinstance(prompt, list):
-        prompt = [prompt]
-    if not isinstance(label, list):
-        label = [label]
+    len_temp = len(augmentation_templates)
+    prompts = [item["prompt"] for item in updates]
+    labels = [item["target"] for item in updates]
+    loc_prompts = (
+        [item["loc_prompt"] for item in updates] if "loc_prompt" in updates[0] else []
+    )
 
-    updates["localization_prompt"] = random.choice(LOC_PROMPTS)
     mask_token = -100
-
-    only_prompts = [
-        f"{template.format(p)}" for p in prompt for template in augmentation_templates
-    ]
-
-    full_prompts = [
-        f"{template.format(p + ' ' + l)}"
-        for p, l in zip(prompt, label)
-        for template in augmentation_templates
-    ]
-
-    full_prompts += [updates["localization_prompt"]]
-
-    only_prompt_tokens = tokenizer(
-        only_prompts,
-        padding=True,
-        return_tensors="pt",
-        truncation=True,
-    )
-
-    full_prompt_tokens = tokenizer(
-        full_prompts,
-        padding=True,
-        return_tensors="pt",
-        truncation=True,
-    )
-
-    only_prompt_ids = only_prompt_tokens["input_ids"]
-    num_only_prompt_tokens = [len(p) for p in only_prompt_ids]
-
-    full_prompt_tokens["labels"] = full_prompt_tokens["input_ids"].clone()
-
-    # Mask the labels for non-edit parts
-    if getattr(config, "objective_optimization", "only_label") == "only_label":
-        for i, length in enumerate(num_only_prompt_tokens):
-            full_prompt_tokens["labels"][i][:length] = mask_token
-
-    # Mask the padding tokens in the labels
-    full_prompt_tokens["labels"][
-        full_prompt_tokens["input_ids"] == tokenizer.pad_token_id
-    ] = mask_token
-
-    if updates["localization_prompt"] in updates["prompt"]:
-        subject_token_with_space = tokenizer.encode(
-            " " + updates["localization_prompt"], add_special_tokens=False
-        )
-        subject_token = tokenizer.encode(
-            updates["localization_prompt"], add_special_tokens=False
-        )
-        subjext_length = len(subject_token_with_space)
-
-        activation_mask = torch.zeros_like(full_prompt_tokens["input_ids"][:-1])
-        deactivation_mask = torch.ones_like(full_prompt_tokens["input_ids"][:-1])
-
-        for i, token in enumerate(full_prompt_tokens["input_ids"]):
-            start_index = find_sublist_start_index(
-                full_prompt_tokens.detach().cpu().numpy.tolist(),
-                subject_token_with_space,
+    if hasattr(config, "use_chat_templates") and config.use_chat_templates:
+        full_prompts = [
+            tokenizer.apply_chat_template(
+                [{"role": "user", "content": temp.format(p)}],
+                add_generation_prompt=True,
+                tokenize=False,
             )
-            if start_index is None:
-                start_index = find_sublist_start_index(
-                    full_prompt_tokens.detach().cpu().numpy().tolist(), subject_token
+            + " "
+            + l
+            for temp in augmentation_templates
+            for p, l in zip(prompts, labels)
+        ]
+        promtp_ids = tokenizer(
+            [
+                tokenizer.apply_chat_template(
+                    [{"role": "user", "content": temp.format(p)}],
+                    add_generation_prompt=True,
+                    tokenize=False,
                 )
-                subject_length = len(subject_token)
-            activation_mask[i][start_index : start_index + subjext_length] = 1
-            deactivation_mask[i][start_index : start_index + subjext_length] = 0
+                for temp in augmentation_templates
+                for p in prompts
+            ],
+            padding=True,
+            return_tensors="pt",
+            truncation=True,
+        )["input_ids"]
 
     else:
-        activation_mask = None
-        deactivation_mask = None
+        full_prompts = [
+            temp.format(p) + " " + l
+            for temp in augmentation_templates
+            for p, l in zip(prompts, labels)
+        ]
+        promtp_ids = tokenizer(
+            [temp.format(p) for temp in augmentation_templates for p in prompts],
+            padding=True,
+            return_tensors="pt",
+            truncation=True,
+        )["input_ids"]
+    full_prompts += loc_prompts
 
-    full_prompt_tokens = {
-        f"{key}": value.to(device) for key, value in full_prompt_tokens.items()
-    }
+    num_prompt_toks = [len(i) for i in promtp_ids]
+    tokens = tokenizer(
+        full_prompts, padding=True, return_tensors="pt", truncation=True
+    )
+    tokens[labels] = tokens["input_ids"].clone()
 
-    return full_prompt_tokens, activation_mask, deactivation_mask
+    tokens["labels"][tokens["input_ids"] == tokenizer.pad_token_id] = mask_token
+    activation_masks = []
+    deactivation_masks = []
+
+    for i, loc_prompt in enumerate(loc_prompts):
+        if loc_prompt in prompts[i]:
+            subject_token = tokenizer.encode(" "+ loc_prompt, add_special_tokens=False)
+            subject_token1 = tokenizer.encode(loc_prompt, add_special_tokens=False)
+
+            subject_lenght = len(subject_token)
+
+            activation_mask = torch.zeros_like(
+                tokens["input_ids"][int(i*len_temp): int((i+1)*len_temp)]
+            )
+            deactivation_mask = torch.zeros_like(
+                tokens["input_ids"][int(i*len_temp): int((i+1)*len_temp)]
+            )
+
+            for j, token in enumerate(
+                tokens["input_ids"][int(i*len_temp): int((i+1)*len_temp)]
+            ):
+                start_index = find_sublist_start_index(token.detach().cpu().numpy().tolist(), subject_token)
+                if start_index is None:
+                    start_index = find_sublist_start_index(
+                        token.detach().cpu().numpy().tolist(), subject_token1
+                    )
+                    subject_lenght = len(subject_token1)
+                activation_mask[j, start_index : start_index + subject_lenght] = 1
+                deactivation_mask[j][: start_index] = 1
+                deactivation_mask[j][start_index + subject_lenght :] = 1
+        else:
+            activation_mask = None
+            deactivation_mask = None
+        activation_masks.append(activation_mask)
+        deactivation_masks.append(deactivation_mask)
+    
+    activation_masks = [mask.to(device) if mask is not None else None for mask in activation_masks]
+    deactivation_masks = [mask.to(device) if mask is not None else None for mask in deactivation_masks]
+
+    tokens = {key: val.to(device) for key, val in tokens.items()}
+
+    return tokens, activation_mask, deactivation_mask
 
 
 def edit_model_with_WISE(
@@ -180,7 +192,6 @@ def edit_model_with_WISE(
     for temp in augmentation_templates:
         print(f"Template: {temp}")
 
-
     wise = WISE(model=model, config=config, device=model.device)
 
     tokens, act_mask, deact_mask = tokenize(
@@ -200,8 +211,6 @@ def edit_model_with_WISE(
 
     print("Activation Mask:\n", act_mask if act_mask is not None else "None")
     print("Deactivation Mask:\n", deact_mask if deact_mask is not None else "None")
-
-    
 
     wise.edit(
         config=config,
