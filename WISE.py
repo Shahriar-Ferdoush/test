@@ -36,12 +36,12 @@ def euc(query, key, config, act_mask=None, infer=False):
 class WISE(torch.nn.Module):
     def __init__(self, config, model, device=None):
         import torch
-        if device is None:
-            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+        if device is None or isinstance(device, str):
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         super(WISE, self).__init__()
         self.config = config
         self.model = model
-        self.config = config
         if hasattr(self.model.config, "hidden_act"):
             self.config.hidden_act = self.model.config.hidden_act
         elif hasattr(self.model.config, "activation_function"):
@@ -58,8 +58,7 @@ class WISE(torch.nn.Module):
             layer.rsplit(".", 1)[0]
             if any(layer.endswith(x) for x in suffixes)
             else layer
-            ).to(device = torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
-        self.device = device
+        )
 
         for n, p in self.model.named_parameters():
             p.requires_grad = False
@@ -77,10 +76,12 @@ class WISE(torch.nn.Module):
         adapter_layer = getattr(self.edit_module, self.layer_name)
 
         if type(adapter_layer) is not WISEAdapter:
+            wise_adapter = WISEAdapter(config, adapter_layer, transpose=transpose)
+            wise_adapter = wise_adapter.to(device)
             setattr(
                 self.edit_module,
                 self.layer_name,
-                WISEAdapter(config, adapter_layer, transpose=transpose),
+                wise_adapter,
             )
             self.original_layer = copy.deepcopy(adapter_layer)
             print(f"New weights successfully inserted into {layer}")
